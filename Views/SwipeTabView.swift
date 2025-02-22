@@ -23,27 +23,6 @@ struct SwipeTabView: View {
                     }
                 }.padding([.top, .horizontal], 10)
                 
-                HStack(spacing: 70) {
-                    ActionButton(image: "xmark", color: .deleteColor) {
-                        guard hasFreeSwipes else {
-                            manager.fullScreenMode = .premium
-                            return
-                        }
-                        guard let asset = manager.assetsSwipeStack.first else { return }
-                        manager.deleteAsset(asset)
-                    }
-                    ActionButton(image: "heart.fill", color: .keepColor) {
-                        guard hasFreeSwipes else {
-                            manager.fullScreenMode = .premium
-                            return
-                        }
-                        guard let asset = manager.assetsSwipeStack.first else { return }
-                        manager.keepAsset(asset)
-                    }
-                }
-                .padding(.vertical, 12)
-                .disabled(manager.assetsSwipeStack.count == 0 || manager.swipeStackLoadMore)
-                
             }.padding(.bottom, 5).background(
                 RoundedRectangle(cornerRadius: 28).foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.05), radius: 8)

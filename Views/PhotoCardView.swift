@@ -16,7 +16,7 @@ struct PhotoCardView: View {
     @State var fromOnboardingFlow: Bool = false
     @State private var player: AVPlayer?
     @State private var isVideoLoaded: Bool = false
-    static let height: Double = UIScreen.main.bounds.width * 1.0
+    static let height: Double = UIScreen.main.bounds.width * 1.4
     let asset: AssetModel
     
     /// Check if this card is the top card in the stack
