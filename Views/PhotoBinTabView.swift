@@ -15,11 +15,64 @@ struct PhotoBinTabView: View {
     
     // MARK: - Main rendering function
     var body: some View {
-        VStack {
-            if manager.removeStackAssets.count == 0 {
-                EmptyDeleteAssetsList
+        ZStack {
+            VStack {
+                if manager.removeStackAssets.count == 0 {
+                    EmptyDeleteAssetsList
+                } else {
+                    AssetsGridListView
+                }
+            }
+            
+            // Floating action buttons
+            if !manager.selectedAssets.isEmpty {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 20) {
+                        // Keep button
+                        FloatingActionButton(
+                            icon: "heart.fill",
+                            color: .green,
+                            action: {
+                                for id in manager.selectedAssets {
+                                    if let asset = manager.removeStackAssets.first(where: { $0.id == id }) {
+                                        manager.restoreAsset(asset)
+                                    }
+                                }
+                                manager.selectedAssets.removeAll()
+                            }
+                        )
+                        
+                        // Delete button
+                        FloatingActionButton(
+                            icon: "trash.fill",
+                            color: .red,
+                            action: {
+                                // Show confirmation dialog
+                                let count = manager.selectedAssets.count
+                                presentAlert(
+                                    title: "Delete Photos",
+                                    message: "Are you sure you want to delete these \(count) photos?",
+                                    primaryAction: .Cancel,
+                                    secondaryAction: .init(title: "Delete", style: .destructive, handler: { _ in
+                                        // Filter assets to delete
+                                        let assetsToDelete = manager.removeStackAssets.filter { manager.selectedAssets.contains($0.id) }
+                                        manager.emptyPhotoBin(assets: assetsToDelete)
+                                        manager.selectedAssets.removeAll()
+                                    })
+                                )
+                            }
+                        )
+                    }
+                    .padding(.bottom, 30)
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .init("ToggleSelectAll"))) { _ in
+            if manager.selectedAssets.count == manager.removeStackAssets.count {
+                manager.selectedAssets.removeAll()
             } else {
-                AssetsGridListView
+                manager.selectedAssets = Set(manager.removeStackAssets.map { $0.id })
             }
         }
     }
@@ -56,12 +109,35 @@ struct PhotoBinTabView: View {
         }
     }
     
+    /// Floating action button
+    private func FloatingActionButton(icon: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .fill(color)
+                    .frame(width: 56, height: 56)
+                    .shadow(radius: 4)
+                
+                Image(systemName: icon)
+                    .font(.system(size: 24))
+                    .foregroundColor(.white)
+            }
+        }
+    }
+    
     /// Assets grid list view
     private var AssetsGridListView: some View {
         ScrollView(.vertical) {
             LazyVGrid(columns: columns, spacing: gridSpacing) {
                 ForEach(manager.removeStackAssets) { asset in
                     AssetGridItem(for: asset)
+                        .onTapGesture {
+                            if manager.selectedAssets.contains(asset.id) {
+                                manager.selectedAssets.remove(asset.id)
+                            } else {
+                                manager.selectedAssets.insert(asset.id)
+                            }
+                        }
                 }
             }.padding(.horizontal)
             Spacer(minLength: 20)
@@ -70,28 +146,34 @@ struct PhotoBinTabView: View {
     
     /// Asset grid item
     private func AssetGridItem(for model: AssetModel) -> some View {
-        return RoundedRectangle(cornerRadius: 12).frame(height: tileHeight)
-            .foregroundStyle(Color.secondaryTextColor).opacity(0.2)
-            .overlay(AssetImage(for: model)).clipped()
-            .overlay(ItemSelectionOverlay(for: model))
-            .clipShape(RoundedRectangle(cornerRadius: 15))
-    }
-    
-    /// Item selection overlay
-    private func ItemSelectionOverlay(for model: AssetModel) -> some View {
-        VStack {
-            HStack {
-                Spacer()
-                Button { manager.restoreAsset(model) } label: {
-                    ZStack {
-                        Circle().foregroundStyle(.white)
+        ZStack {
+            RoundedRectangle(cornerRadius: 12)
+                .frame(height: tileHeight)
+                .foregroundStyle(Color.secondaryTextColor)
+                .opacity(0.2)
+                .overlay(AssetImage(for: model))
+                .clipped()
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(manager.selectedAssets.contains(model.id) ? Color.blue : Color.clear, lineWidth: 3)
+                )
+            
+            // Selection indicator
+            if manager.selectedAssets.contains(model.id) {
+                VStack {
+                    HStack {
+                        Spacer()
                         Image(systemName: "checkmark.circle.fill")
-                            .resizable().aspectRatio(contentMode: .fit).padding(2)
-                    }.frame(width: 25, height: 25)
+                            .font(.system(size: 24))
+                            .foregroundColor(.blue)
+                            .background(Circle().fill(Color.white))
+                            .padding(8)
+                    }
+                    Spacer()
                 }
-            }.padding(8)
-            Spacer()
+            }
         }
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
     
     /// Asset image preview overlay
@@ -99,7 +181,8 @@ struct PhotoBinTabView: View {
         ZStack {
             if let thumbnail = model.thumbnail {
                 Image(uiImage: thumbnail)
-                    .resizable().aspectRatio(contentMode: .fill)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
             }
         }
     }

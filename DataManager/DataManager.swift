@@ -26,6 +26,7 @@ class DataManager: NSObject, ObservableObject {
     @Published var keepStackAssets: [AssetModel] = [AssetModel]()
     @Published var swipeStackLoadMore: Bool = false
     @Published var swipeStackTitle: String = AppConfig.swipeStackOnThisDateTitle
+    @Published var selectedAssets: Set<String> = []
    
     /// Dynamic properties that the UI will react to AND store values in UserDefaults
     @AppStorage("freePhotosStackCount") var freePhotosStackCount: Int = 0
@@ -520,32 +521,36 @@ extension DataManager {
     }
     
     /// Empty the photo bin and remove all deleted assets from Core Data
-    func emptyPhotoBin() {
-        let itemsCount: Int = removeStackAssets.count
-        presentAlert(title: "Delete Photos", message: "Are you sure you want to delete these \(itemsCount) photos?", primaryAction: .Cancel, secondaryAction: .init(title: "Delete", style: .destructive, handler: { _ in
-            let allAssets = self.assetsByMonth.flatMap { $0.value }
-            let removeStackAssetIdentifiers = self.removeStackAssets.compactMap { $0.id }
-            let assetsToRemove = allAssets.filter { removeStackAssetIdentifiers.contains($0.localIdentifier) }
-            PHPhotoLibrary.shared().performChanges {
-                PHAssetChangeRequest.deleteAssets(assetsToRemove as NSArray)
-            } completionHandler: { success, error in
-                if success {
-                    DispatchQueue.main.async {
-                        // Remove all deleted assets from Core Data
-                        let fetchRequest: NSFetchRequest<DeletedAsset> = DeletedAsset.fetchRequest()
-                        if let deletedAssets = try? self.container.viewContext.fetch(fetchRequest) {
-                            for deletedAsset in deletedAssets {
+    func emptyPhotoBin(assets: [AssetModel]? = nil) {
+        let itemsCount: Int = assets?.count ?? removeStackAssets.count
+        let assetsToDelete = assets ?? removeStackAssets
+        
+        let allAssets = assetsByMonth.flatMap { $0.value }
+        let removeStackAssetIdentifiers = assetsToDelete.compactMap { $0.id }
+        let assetsToRemove = allAssets.filter { removeStackAssetIdentifiers.contains($0.localIdentifier) }
+        
+        PHPhotoLibrary.shared().performChanges {
+            PHAssetChangeRequest.deleteAssets(assetsToRemove as NSArray)
+        } completionHandler: { success, error in
+            if success {
+                DispatchQueue.main.async {
+                    // Remove deleted assets from Core Data
+                    let fetchRequest: NSFetchRequest<DeletedAsset> = DeletedAsset.fetchRequest()
+                    if let deletedAssets = try? self.container.viewContext.fetch(fetchRequest) {
+                        for deletedAsset in deletedAssets {
+                            if let identifier = deletedAsset.assetIdentifier,
+                               removeStackAssetIdentifiers.contains(identifier) {
                                 self.container.viewContext.delete(deletedAsset)
                             }
-                            try? self.container.viewContext.save()
                         }
-                        self.removeStackAssets.removeAll()
+                        try? self.container.viewContext.save()
                     }
-                } else if let errorMessage = error?.localizedDescription {
-                    presentAlert(title: "Oops!", message: errorMessage, primaryAction: .OK)
+                    self.removeStackAssets.removeAll { removeStackAssetIdentifiers.contains($0.id) }
                 }
+            } else if let errorMessage = error?.localizedDescription {
+                presentAlert(title: "Oops!", message: errorMessage, primaryAction: .OK)
             }
-        }))
+        }
     }
 }
 
