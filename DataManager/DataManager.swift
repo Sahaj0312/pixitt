@@ -421,12 +421,29 @@ extension DataManager {
                     options: options
                 ) { previewImage, _ in
                     if let previewImage = previewImage {
-                        let assetModel = AssetModel(id: asset.localIdentifier, month: Date().month, isVideo: asset.mediaType == .video)
+                        // Use the correct month based on the context
+                        let assetMonth: CalendarMonth
+                        if onThisDate {
+                            assetMonth = asset.creationDate?.month ?? Date().month
+                        } else {
+                            assetMonth = calendarMonth ?? (asset.creationDate?.month ?? Date().month)
+                        }
+                        
+                        let assetModel = AssetModel(id: asset.localIdentifier, month: assetMonth, isVideo: asset.mediaType == .video)
                         assetModel.swipeStackImage = previewImage
                         assetModel.creationDate = asset.creationDate?.string(format: "MMMM dd, yyyy")
                         
                         DispatchQueue.main.async {
-                            self.assetsSwipeStack.appendIfNeeded(assetModel)
+                            // Only append if it matches the current filter
+                            if onThisDate {
+                                if asset.creationDate?.string(format: "MM/dd") == Date().string(format: "MM/dd") {
+                                    self.assetsSwipeStack.appendIfNeeded(assetModel)
+                                }
+                            } else if let month = calendarMonth {
+                                if assetMonth == month {
+                                    self.assetsSwipeStack.appendIfNeeded(assetModel)
+                                }
+                            }
                             
                             // Then load the full quality version
                             self.imageManager.requestImageDataAndOrientation(for: asset, options: options) { imageData, _, _, _ in
