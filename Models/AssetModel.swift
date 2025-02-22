@@ -9,14 +9,14 @@ import UIKit
 import Foundation
 
 /// A model that represents a photo gallery asset (photo, video, live photo)
-class AssetModel: Identifiable {
+class AssetModel: Identifiable, ObservableObject {
     let id: String
     let month: CalendarMonth
-    var thumbnail: UIImage?
-    var swipeStackImage: UIImage?
-    var creationDate: String?
+    @Published var thumbnail: UIImage?
+    @Published var swipeStackImage: UIImage?
+    @Published var creationDate: String?
     var isVideo: Bool = false
-    var fileSize: String?
+    @Published var fileSize: String?
     var fileSizeBytes: Int64 = 0
     
     init(id: String, month: CalendarMonth, isVideo: Bool = false) {

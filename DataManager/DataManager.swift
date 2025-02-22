@@ -42,6 +42,7 @@ class DataManager: NSObject, ObservableObject {
     private let imageManager: PHImageManager = PHImageManager()
     private var fetchResult: PHFetchResult<PHAsset>!
     private var assetsByMonth: [CalendarMonth: [PHAsset]] = [CalendarMonth: [PHAsset]]()
+    private var assetsByYearMonth: [Int: [CalendarMonth: [PHAsset]]] = [:]
     
     /// Track last ad shown timestamp
     private var lastAdShownTime: Date = Date.distantPast
@@ -349,9 +350,22 @@ extension DataManager {
     
     /// Process fetch result assets
     private func processFetchResult() {
+        assetsByMonth.removeAll()
+        assetsByYearMonth.removeAll()
+        
         fetchResult.enumerateObjects { asset, _, _ in
             guard let creationDate = asset.creationDate else { return }
-            self.assetsByMonth[creationDate.month, default: []].append(asset)
+            let year = Calendar.current.component(.year, from: creationDate)
+            let month = creationDate.month
+            
+            // Store in assetsByMonth for backward compatibility
+            self.assetsByMonth[month, default: []].append(asset)
+            
+            // Store in assetsByYearMonth
+            if self.assetsByYearMonth[year] == nil {
+                self.assetsByYearMonth[year] = [:]
+            }
+            self.assetsByYearMonth[year]?[month, default: []].append(asset)
         }
         
         /// Load previously deleted assets
@@ -361,42 +375,7 @@ extension DataManager {
         updateSwipeStack(onThisDate: true, switchTabs: false)
         
         /// Add up to 3 assets for each month to `galleryAssets`
-        galleryAssets.removeAll()
-        for month in CalendarMonth.allCases {
-            guard let assets = assetsByMonth[month], !assets.isEmpty else { continue }
-            // Filter out deleted assets from gallery preview
-            let fetchRequest: NSFetchRequest<DeletedAsset> = DeletedAsset.fetchRequest()
-            let deletedAssetIdentifiers = (try? container.viewContext.fetch(fetchRequest).compactMap { $0.assetIdentifier }) ?? []
-            let nonDeletedAssets = assets.filter { !deletedAssetIdentifiers.contains($0.localIdentifier) }
-            let assetsToAdd = nonDeletedAssets.prefix(3)
-            
-            for asset in assetsToAdd {
-                let assetModel = AssetModel(id: asset.localIdentifier, month: month, isVideo: asset.mediaType == .video)
-                let assetIdentifier = asset.localIdentifier + "_thumbnail"
-                let imageSize = AppConfig.sectionItemThumbnailSize
-                requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
-                    assetModel.thumbnail = image
-                }
-                galleryAssets.append(assetModel)
-            }
-        }
-        
-        /// Fetch the image for `On This Date` header
-        let fetchRequest: NSFetchRequest<DeletedAsset> = DeletedAsset.fetchRequest()
-        let deletedAssetIdentifiers = (try? container.viewContext.fetch(fetchRequest).compactMap { $0.assetIdentifier }) ?? []
-        
-        if let thisDateAsset = assetsByMonth[Date().month]?
-            .sorted(by: { $0.creationDate ?? Date() > $1.creationDate ?? Date() })
-            .filter({ !deletedAssetIdentifiers.contains($0.localIdentifier) }) // Filter out deleted assets
-            .first(where: { $0.creationDate?.string(format: "MM/dd") == Date().string(format: "MM/dd") }) {
-            let assetIdentifier = thisDateAsset.localIdentifier + "_onThisDate"
-            let imageSize = AppConfig.onThisDateItemSize
-            requestImage(for: thisDateAsset, assetIdentifier: assetIdentifier, size: imageSize) { image in
-                DispatchQueue.main.async {
-                    self.onThisDateHeaderImage = image
-                }
-            }
-        }
+        refreshGalleryAssets()
         
         /// Show the `Discover` tab
         DispatchQueue.main.async {
@@ -404,8 +383,70 @@ extension DataManager {
         }
     }
     
+    /// Get available years in descending order
+    var availableYears: [Int] {
+        Array(assetsByYearMonth.keys).sorted(by: >)
+    }
+    
+    /// Get available months for a given year
+    func availableMonths(for year: Int) -> [CalendarMonth] {
+        guard let yearData = assetsByYearMonth[year] else { return [] }
+        return Array(yearData.keys).sorted { month1, month2 in
+            let monthIndex1 = CalendarMonth.allCases.firstIndex(of: month1) ?? 0
+            let monthIndex2 = CalendarMonth.allCases.firstIndex(of: month2) ?? 0
+            return monthIndex1 < monthIndex2
+        }
+    }
+    
+    /// Get assets preview for a specific year and month
+    func assetsPreview(for month: CalendarMonth, year: Int) -> [AssetModel] {
+        guard let yearData = assetsByYearMonth[year],
+              let monthAssets = yearData[month] else { return [] }
+        
+        // Filter out deleted assets
+        let fetchRequest: NSFetchRequest<DeletedAsset> = DeletedAsset.fetchRequest()
+        let deletedAssetIdentifiers = (try? container.viewContext.fetch(fetchRequest).compactMap { $0.assetIdentifier }) ?? []
+        let nonDeletedAssets = monthAssets.filter { !deletedAssetIdentifiers.contains($0.localIdentifier) }
+        
+        return nonDeletedAssets.prefix(3).map { asset in
+            let assetModel = AssetModel(id: asset.localIdentifier, month: month, isVideo: asset.mediaType == .video)
+            
+            // Load image synchronously for preview
+            let options = PHImageRequestOptions()
+            options.deliveryMode = .fastFormat
+            options.isSynchronous = true
+            options.resizeMode = .fast
+            options.isNetworkAccessAllowed = true
+            
+            imageManager.requestImage(
+                for: asset,
+                targetSize: AppConfig.sectionItemThumbnailSize,
+                contentMode: .aspectFill,
+                options: options
+            ) { image, _ in
+                assetModel.thumbnail = image
+            }
+            
+            return assetModel
+        }
+    }
+    
+    /// Get the total number of assets for a given year and month
+    func assetsCount(for month: CalendarMonth, year: Int) -> Int? {
+        guard let yearData = assetsByYearMonth[year],
+              let assets = yearData[month] else { return nil }
+        
+        // Get deleted asset identifiers from Core Data
+        let fetchRequest: NSFetchRequest<DeletedAsset> = DeletedAsset.fetchRequest()
+        let deletedAssetIdentifiers = (try? container.viewContext.fetch(fetchRequest).compactMap { $0.assetIdentifier }) ?? []
+        
+        // Filter out deleted assets before counting
+        let nonDeletedAssets = assets.filter { !deletedAssetIdentifiers.contains($0.localIdentifier) }
+        return nonDeletedAssets.count
+    }
+    
     /// Update the `assetsSwipeStack` with selected category
-    func updateSwipeStack(with calendarMonth: CalendarMonth? = nil, onThisDate: Bool = false, switchTabs: Bool = true) {
+    func updateSwipeStack(with calendarMonth: CalendarMonth? = nil, year: Int? = nil, onThisDate: Bool = false, switchTabs: Bool = true) {
         func appendSwipeStackAsset(_ asset: PHAsset) {
             let assetIdentifier = asset.localIdentifier
             // Check if the asset is marked for deletion in Core Data
@@ -452,8 +493,9 @@ extension DataManager {
                                 if asset.creationDate?.string(format: "MM/dd") == Date().string(format: "MM/dd") {
                                     self.assetsSwipeStack.appendIfNeeded(assetModel)
                                 }
-                            } else if let month = calendarMonth {
-                                if assetMonth == month {
+                            } else if let month = calendarMonth, let targetYear = year {
+                                let assetYear = Calendar.current.component(.year, from: asset.creationDate ?? Date())
+                                if assetMonth == month && assetYear == targetYear {
                                     self.assetsSwipeStack.appendIfNeeded(assetModel)
                                 }
                             }
@@ -472,27 +514,14 @@ extension DataManager {
             }
         }
         
-        func shouldAppendAsset(_ asset: PHAsset) -> Bool {
-            let assetIdentifier = asset.localIdentifier
-            let isNotInSwipeStack = !assetsSwipeStack.contains { $0.id == assetIdentifier }
-            let isNotInKeepStack = !keepStackAssets.contains { $0.id == assetIdentifier }
-            // Optimize Core Data fetch by doing it once
-            if let deletedAssets = try? container.viewContext.fetch(DeletedAsset.fetchRequest()) {
-                let isNotDeleted = !deletedAssets.contains { $0.assetIdentifier == assetIdentifier }
-                return isNotInSwipeStack && isNotInKeepStack && isNotDeleted
-            }
-            return isNotInSwipeStack && isNotInKeepStack
-        }
-        
         var assets: [PHAsset] = [PHAsset]()
         
         if onThisDate {
             assets = assetsByMonth[Date().month]?
                 .sorted(by: { $0.creationDate ?? Date() > $1.creationDate ?? Date() })
                 .filter({ $0.creationDate?.string(format: "MM/dd") == Date().string(format: "MM/dd") }) ?? []
-        } else {
-            guard let month = calendarMonth else { return }
-            assets = assetsByMonth[month] ?? []
+        } else if let month = calendarMonth, let targetYear = year {
+            assets = assetsByYearMonth[targetYear]?[month] ?? []
         }
         
         if switchTabs {
@@ -675,6 +704,28 @@ extension DataManager {
                 completion(image)
             }
         }
+    }
+    
+    /// Check if an asset should be appended to the swipe stack
+    private func shouldAppendAsset(_ asset: PHAsset) -> Bool {
+        // Don't add if it's already in the swipe stack
+        guard !assetsSwipeStack.contains(where: { $0.id == asset.localIdentifier }) else {
+            return false
+        }
+        
+        // Don't add if it's in the keep stack
+        guard !keepStackAssets.contains(where: { $0.id == asset.localIdentifier }) else {
+            return false
+        }
+        
+        // Check if the asset is marked for deletion in Core Data
+        let fetchRequest: NSFetchRequest<DeletedAsset> = DeletedAsset.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "assetIdentifier = %@", asset.localIdentifier)
+        if let deletedAssets = try? container.viewContext.fetch(fetchRequest), !deletedAssets.isEmpty {
+            return false
+        }
+        
+        return true
     }
     
     /// Load video asset and return URL
