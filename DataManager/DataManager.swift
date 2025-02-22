@@ -414,6 +414,11 @@ extension DataManager {
                 options.resizeMode = .none
                 options.version = .current
                 
+                // Get asset resource to determine file size
+                let resources = PHAssetResource.assetResources(for: asset)
+                let fileSize = resources.first?.value(forKey: "fileSize") as? Int64 ?? 0
+                let formattedSize = ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file)
+                
                 // First load a quick preview
                 imageManager.requestImage(
                     for: asset,
@@ -433,6 +438,7 @@ extension DataManager {
                         let assetModel = AssetModel(id: asset.localIdentifier, month: assetMonth, isVideo: asset.mediaType == .video)
                         assetModel.swipeStackImage = previewImage
                         assetModel.creationDate = asset.creationDate?.string(format: "MMMM dd, yyyy")
+                        assetModel.fileSize = formattedSize
                         
                         DispatchQueue.main.async {
                             // Only append if it matches the current filter

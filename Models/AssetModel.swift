@@ -16,6 +16,7 @@ class AssetModel: Identifiable {
     var swipeStackImage: UIImage?
     var creationDate: String?
     var isVideo: Bool = false
+    var fileSize: String?
     
     init(id: String, month: CalendarMonth, isVideo: Bool = false) {
         self.id = id

@@ -108,15 +108,31 @@ struct PhotoCardView: View {
     private var AssetCreationDateTag: some View {
         VStack {
             Spacer()
-            if let date = asset.creationDate {
-                Text(date).padding(8).padding(.horizontal, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .foregroundStyle(.white).opacity(0.8)
-                    )
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color.primaryTextColor).padding(.top, 38)
-            }
+            HStack {
+                if let date = asset.creationDate {
+                    Text(date)
+                        .padding(8)
+                        .padding(.horizontal, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .foregroundStyle(.white).opacity(0.8)
+                        )
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color.primaryTextColor)
+                }
+                Spacer()
+                if let size = asset.fileSize {
+                    Text(size)
+                        .padding(8)
+                        .padding(.horizontal, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .foregroundStyle(.white).opacity(0.8)
+                        )
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color.primaryTextColor)
+                }
+            }.padding(.top, 38)
         }.padding()
     }
     
