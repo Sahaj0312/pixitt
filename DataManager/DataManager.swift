@@ -27,6 +27,8 @@ class DataManager: NSObject, ObservableObject {
     @Published var swipeStackLoadMore: Bool = false
     @Published var swipeStackTitle: String = AppConfig.swipeStackOnThisDateTitle
     @Published var selectedAssets: Set<String> = []
+    @Published var videosPreview: [AssetModel] = []
+    @Published var videosCount: Int?
    
     /// Dynamic properties that the UI will react to AND store values in UserDefaults
     @AppStorage("freePhotosStackCount") var freePhotosStackCount: Int = 0
@@ -41,6 +43,7 @@ class DataManager: NSObject, ObservableObject {
     /// Photo Library properties
     private let imageManager: PHImageManager = PHImageManager()
     private var fetchResult: PHFetchResult<PHAsset>!
+    private var videosFetchResult: PHFetchResult<PHAsset>!
     private var assetsByMonth: [CalendarMonth: [PHAsset]] = [CalendarMonth: [PHAsset]]()
     private var assetsByYearMonth: [Int: [CalendarMonth: [PHAsset]]] = [:]
     
@@ -174,9 +177,12 @@ extension DataManager {
                 self.appendStackAssetsIfNeeded()
                 self.saveDeletedAsset(assetIdentifier: assetIdentifier)
                 
-                // Refresh gallery assets to update counts and previews
+                // Refresh gallery assets and video count if it's a video
                 DispatchQueue.main.async {
                     self.refreshGalleryAssets()
+                    if model.isVideo {
+                        self.processVideosFetchResult()
+                    }
                 }
             }
         } else {
@@ -244,9 +250,12 @@ extension DataManager {
         removeStackAssets.removeAll(where: { $0.id == model.id })
         removeDeletedAsset(assetIdentifier: model.id)
         
-        // Refresh gallery assets to update counts and previews
+        // Refresh gallery assets and video count if it's a video
         DispatchQueue.main.async {
             self.refreshGalleryAssets()
+            if model.isVideo {
+                self.processVideosFetchResult()
+            }
         }
     }
     
@@ -342,10 +351,19 @@ extension DataManager {
 // MARK: - Photo Library implementation
 extension DataManager {
     private func fetchLibraryAssets() {
+        // Fetch all assets
         let allPhotosOptions = PHFetchOptions()
         allPhotosOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
         fetchResult = PHAsset.fetchAssets(with: allPhotosOptions)
+        
+        // Fetch videos
+        let videosOptions = PHFetchOptions()
+        videosOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        videosOptions.predicate = NSPredicate(format: "mediaType = %d", PHAssetMediaType.video.rawValue)
+        videosFetchResult = PHAsset.fetchAssets(with: videosOptions)
+        
         processFetchResult()
+        processVideosFetchResult()
     }
     
     /// Process fetch result assets
@@ -380,6 +398,39 @@ extension DataManager {
         /// Show the `Discover` tab
         DispatchQueue.main.async {
             self.didProcessAssets = true
+        }
+    }
+    
+    private func processVideosFetchResult() {
+        videosPreview.removeAll()
+        
+        // Get deleted asset identifiers
+        let fetchRequest: NSFetchRequest<DeletedAsset> = DeletedAsset.fetchRequest()
+        let deletedAssetIdentifiers = (try? container.viewContext.fetch(fetchRequest).compactMap { $0.assetIdentifier }) ?? []
+        
+        var nonDeletedCount = 0
+        
+        videosFetchResult.enumerateObjects { asset, _, _ in
+            if !deletedAssetIdentifiers.contains(asset.localIdentifier) {
+                nonDeletedCount += 1
+                
+                // Only add first video to preview
+                if self.videosPreview.isEmpty {
+                    let assetModel = AssetModel(id: asset.localIdentifier, month: asset.creationDate?.month ?? .january, isVideo: true)
+                    let imageSize = AppConfig.onThisDateItemSize
+                    
+                    self.requestImage(for: asset, assetIdentifier: asset.localIdentifier + "_video_preview", size: imageSize) { image in
+                        DispatchQueue.main.async {
+                            assetModel.thumbnail = image
+                            self.videosPreview.append(assetModel)
+                        }
+                    }
+                }
+            }
+        }
+        
+        DispatchQueue.main.async {
+            self.videosCount = nonDeletedCount
         }
     }
     
@@ -446,7 +497,7 @@ extension DataManager {
     }
     
     /// Update the `assetsSwipeStack` with selected category
-    func updateSwipeStack(with calendarMonth: CalendarMonth? = nil, year: Int? = nil, onThisDate: Bool = false, switchTabs: Bool = true) {
+    func updateSwipeStack(with calendarMonth: CalendarMonth? = nil, year: Int? = nil, onThisDate: Bool = false, videosOnly: Bool = false, switchTabs: Bool = true) {
         func appendSwipeStackAsset(_ asset: PHAsset) {
             let assetIdentifier = asset.localIdentifier
             // Check if the asset is marked for deletion in Core Data
@@ -493,6 +544,10 @@ extension DataManager {
                                 if asset.creationDate?.string(format: "MM/dd") == Date().string(format: "MM/dd") {
                                     self.assetsSwipeStack.appendIfNeeded(assetModel)
                                 }
+                            } else if videosOnly {
+                                if asset.mediaType == .video {
+                                    self.assetsSwipeStack.appendIfNeeded(assetModel)
+                                }
                             } else if let month = calendarMonth, let targetYear = year {
                                 let assetYear = Calendar.current.component(.year, from: asset.creationDate ?? Date())
                                 if assetMonth == month && assetYear == targetYear {
@@ -520,6 +575,11 @@ extension DataManager {
             assets = assetsByMonth[Date().month]?
                 .sorted(by: { $0.creationDate ?? Date() > $1.creationDate ?? Date() })
                 .filter({ $0.creationDate?.string(format: "MM/dd") == Date().string(format: "MM/dd") }) ?? []
+        } else if videosOnly {
+            assets = Array(videosFetchResult.objects(at: IndexSet(0..<videosFetchResult.count)))
+            DispatchQueue.main.async {
+                self.swipeStackTitle = "Videos"
+            }
         } else if let month = calendarMonth, let targetYear = year {
             assets = assetsByYearMonth[targetYear]?[month] ?? []
         }

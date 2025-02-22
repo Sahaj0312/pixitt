@@ -17,7 +17,12 @@ struct HomeTabView: View {
     var body: some View {
         ScrollView(.vertical) {
             LazyVStack(spacing: 35) {
-                OnThisDateSection
+                // Top sections row
+                HStack(spacing: 15) {
+                    OnThisDateSection
+                    VideosSection
+                }.padding(.top, 10)
+                
                 ForEach(manager.availableYears, id: \.self) { year in
                     YearSection(year: year)
                 }
@@ -28,73 +33,157 @@ struct HomeTabView: View {
     
     // MARK: - On This Date section
     private var OnThisDateSection: some View {
-        let tileHeight: Double = UIScreen.main.bounds.width - 100.0
-        return RoundedRectangle(cornerRadius: 25).frame(height: tileHeight)
-            .foregroundStyle(LinearGradient(colors: [
-                .init(white: 0.94), .init(white: 0.97)
-            ], startPoint: .top, endPoint: .bottom))
-            .background(ShadowBackgroundView(height: tileHeight))
-            .overlay(OnThisDateHeaderImage(height: tileHeight))
-            .overlay(OnThisDateBottomOverlay)
-            .overlay(PermissionsView().opacity(manager.didGrantPermissions ? 0 : 1))
-    }
-    
-    /// On This Date header image
-    private func OnThisDateHeaderImage(height: Double) -> some View {
-        ZStack {
+        let tileHeight: Double = UIScreen.main.bounds.width/2 - 25.0
+        return ZStack {
+            RoundedRectangle(cornerRadius: 25)
+                .fill(Color.white)
+                .shadow(color: .black.opacity(0.1), radius: 10, y: 5)
+            
             if let image = manager.onThisDateHeaderImage {
-                let width: Double = UIScreen.main.bounds.width - 32.0
                 Button { manager.updateSwipeStack(onThisDate: true) } label: {
                     Image(uiImage: image)
-                        .resizable().aspectRatio(contentMode: .fill)
-                        .frame(height: height).frame(width: width)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(height: tileHeight)
                         .clipShape(RoundedRectangle(cornerRadius: 25))
+                        .overlay(
+                            LinearGradient(
+                                colors: [.clear, .black.opacity(0.3)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
                 }
+            } else {
+                NoPhotosOverlay
             }
-        }.opacity(!manager.didGrantPermissions ? 0 : 1)
-    }
-    
-    /// Custom shadow background
-    private func ShadowBackgroundView(height: Double) -> some View {
-        RoundedRectangle(cornerRadius: 25).offset(y: 20)
-            .foregroundStyle(Color.accentColor).padding()
-            .blur(radius: 10).opacity(0.5)
-    }
-    
-    /// On This Date bottom overlay
-    private var OnThisDateBottomOverlay: some View {
-        VStack {
-            Spacer()
-            NoPhotosOverlay
-            Spacer()
-            HStack {
-                VStack(alignment: .leading) {
-                    Text(Date().string(format: "MMMM d"))
-                        .font(.system(size: 15, weight: .medium))
-                    Text("On This Date")
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
-                }
+            
+            // Title overlay at the bottom
+            VStack {
                 Spacer()
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(Date().string(format: "MMMM d"))
+                            .font(.system(size: 15, weight: .medium))
+                        Text("On This Date")
+                            .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundStyle(.white)
+                    Spacer()
+                }
+                .padding(15)
+                .background(
+                    RoundedCorner(radius: 25, corners: [.bottomLeft, .bottomRight])
+                        .fill(Color.black.opacity(0.3))
+                )
             }
-            .foregroundStyle(Color.white)
-            .padding(10).padding(.horizontal, 5).background(
-                RoundedCorner(radius: 25, corners: [.bottomLeft, .bottomRight])
-                    .foregroundStyle(Color.primaryTextColor).opacity(0.3)
-            )
-            .opacity(manager.didGrantPermissions ? 1 : 0)
-        }.allowsHitTesting(false)
+        }
+        .frame(height: tileHeight)
+        .clipShape(RoundedRectangle(cornerRadius: 25))
+        .opacity(manager.didGrantPermissions ? 1 : 0)
+        .overlay(PermissionsView().opacity(manager.didGrantPermissions ? 0 : 1))
+    }
+    
+    // MARK: - Videos section
+    private var VideosSection: some View {
+        let tileHeight: Double = UIScreen.main.bounds.width/2 - 25.0
+        return ZStack {
+            RoundedRectangle(cornerRadius: 25)
+                .fill(Color.white)
+                .shadow(color: .black.opacity(0.1), radius: 10, y: 5)
+            
+            if let firstVideo = manager.videosPreview.first, let thumbnail = firstVideo.thumbnail {
+                Button { manager.updateSwipeStack(videosOnly: true) } label: {
+                    ZStack {
+                        Image(uiImage: thumbnail)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(height: tileHeight)
+                            .clipShape(RoundedRectangle(cornerRadius: 25))
+                            .overlay(
+                                LinearGradient(
+                                    colors: [.clear, .black.opacity(0.3)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                        
+                        // Play button overlay
+                        Circle()
+                            .fill(.white.opacity(0.9))
+                            .frame(width: 60, height: 60)
+                            .overlay(
+                                Image(systemName: "play.fill")
+                                    .font(.system(size: 25, weight: .bold))
+                                    .foregroundStyle(.black)
+                                    .offset(x: 2)
+                            )
+                    }
+                }
+            } else {
+                NoVideosOverlay
+            }
+            
+            // Title overlay at the bottom
+            VStack {
+                Spacer()
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let count = manager.videosCount {
+                            Text("\(count) Videos")
+                                .font(.system(size: 15, weight: .medium))
+                        }
+                        Text("Videos")
+                            .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundStyle(.white)
+                    Spacer()
+                }
+                .padding(15)
+                .background(
+                    RoundedCorner(radius: 25, corners: [.bottomLeft, .bottomRight])
+                        .fill(Color.black.opacity(0.3))
+                )
+            }
+        }
+        .frame(height: tileHeight)
+        .clipShape(RoundedRectangle(cornerRadius: 25))
+        .opacity(manager.didGrantPermissions ? 1 : 0)
+        .overlay(PermissionsView().opacity(manager.didGrantPermissions ? 0 : 1))
     }
     
     /// No photos on this date
     private var NoPhotosOverlay: some View {
-        VStack {
+        VStack(spacing: 12) {
             Image(systemName: "calendar")
-                .font(.system(size: 40)).padding(5)
-            Text("Empty Today").font(.title2).fontWeight(.bold)
-            Text("Nothing from this date. Explore other memories or check back later.")
-                .font(.body).multilineTextAlignment(.center)
-                .padding(.horizontal).opacity(0.6)
-        }.opacity(manager.didGrantPermissions && !manager.hasPhotosOnThisDate ? 1 : 0)
+                .font(.system(size: 35))
+                .foregroundStyle(.gray)
+            Text("No Photos Today")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.gray)
+            Text("Check back later for memories")
+                .font(.system(size: 14))
+                .foregroundStyle(.gray.opacity(0.8))
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+    }
+    
+    /// No videos overlay
+    private var NoVideosOverlay: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "video.slash")
+                .font(.system(size: 35))
+                .foregroundStyle(.gray)
+            Text("No Videos")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.gray)
+            Text("No videos in your library")
+                .font(.system(size: 14))
+                .foregroundStyle(.gray.opacity(0.8))
+                .multilineTextAlignment(.center)
+        }
+        .padding()
     }
     
     // MARK: - Year section with horizontal month scrolling
@@ -198,6 +287,18 @@ struct HomeTabView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fill)
             }
+        }
+    }
+    
+    /// Custom shape for rounded corners
+    private struct RoundedCorner: Shape {
+        var radius: CGFloat = .infinity
+        var corners: UIRectCorner = .allCorners
+
+        func path(in rect: CGRect) -> Path {
+            let path = UIBezierPath(roundedRect: rect, byRoundingCorners: corners,
+                                  cornerRadii: CGSize(width: radius, height: radius))
+            return Path(path.cgPath)
         }
     }
 }
