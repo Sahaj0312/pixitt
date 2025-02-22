@@ -42,6 +42,9 @@ class DataManager: NSObject, ObservableObject {
     private var fetchResult: PHFetchResult<PHAsset>!
     private var assetsByMonth: [CalendarMonth: [PHAsset]] = [CalendarMonth: [PHAsset]]()
     
+    /// Track last ad shown timestamp
+    private var lastAdShownTime: Date = Date.distantPast
+    
     /// Default initializer
     override init() {
         super.init()
@@ -175,8 +178,8 @@ extension DataManager {
     
     /// Append more assets to the stack
     private func appendStackAssetsIfNeeded() {
-        // Only try to load more if we have 25 or fewer assets
-        guard assetsSwipeStack.count <= 25 else { return }
+        // Only try to load more if we have 15 or fewer assets
+        guard assetsSwipeStack.count <= 15 else { return }
         
         let onThisDate: Bool = swipeStackTitle == AppConfig.swipeStackOnThisDateTitle
         let month: CalendarMonth? = CalendarMonth(rawValue: swipeStackTitle.lowercased())
@@ -209,7 +212,14 @@ extension DataManager {
         
         if hasMoreAssets {
             swipeStackLoadMore = true
-            Interstitial.shared.showInterstitialAds()
+            
+            // Show ad only if enough time has passed (30 seconds between ads)
+            let timeSinceLastAd = Date().timeIntervalSince(lastAdShownTime)
+            if timeSinceLastAd >= 45 && !isPremiumUser {
+                lastAdShownTime = Date()
+                Interstitial.shared.showInterstitialAds()
+            }
+            
             DispatchQueue.global(qos: .userInitiated).async {
                 self.updateSwipeStack(with: month, onThisDate: onThisDate, switchTabs: false)
                 DispatchQueue.main.async { self.swipeStackLoadMore = false }
