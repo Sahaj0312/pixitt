@@ -17,6 +17,7 @@ class AssetModel: Identifiable {
     var creationDate: String?
     var isVideo: Bool = false
     var fileSize: String?
+    var fileSizeBytes: Int64 = 0
     
     init(id: String, month: CalendarMonth, isVideo: Bool = false) {
         self.id = id

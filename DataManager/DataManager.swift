@@ -158,6 +158,12 @@ extension DataManager {
         let assetIdentifier: String = model.id
         let imageSize: CGSize = AppConfig.sectionItemThumbnailSize
         if let asset = assetsByMonth.flatMap({ $0.value }).first(where: { $0.localIdentifier == assetIdentifier }) {
+            // Get asset resource to determine file size
+            let resources = PHAssetResource.assetResources(for: asset)
+            let fileSize = resources.first?.value(forKey: "fileSize") as? Int64 ?? 0
+            model.fileSizeBytes = fileSize
+            model.fileSize = ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file)
+            
             requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
                 model.thumbnail = image
                 model.swipeStackImage = nil

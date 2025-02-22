@@ -24,10 +24,25 @@ struct PhotoBinTabView: View {
                 }
             }
             
-            // Floating action buttons
+            // Floating action buttons and total size
             if !manager.selectedAssets.isEmpty {
                 VStack {
                     Spacer()
+                    // Total size indicator
+                    let totalSize = calculateTotalSize()
+                    if !totalSize.isEmpty {
+                        Text("Total Size: " + totalSize)
+                            .padding(8)
+                            .padding(.horizontal, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .foregroundStyle(.white)
+                                    .shadow(radius: 2)
+                            )
+                            .font(.system(size: 14, weight: .medium))
+                            .padding(.bottom, 8)
+                    }
+                    
                     HStack(spacing: 20) {
                         // Keep button
                         FloatingActionButton(
@@ -75,6 +90,13 @@ struct PhotoBinTabView: View {
                 manager.selectedAssets = Set(manager.removeStackAssets.map { $0.id })
             }
         }
+    }
+    
+    /// Calculate total size of selected assets
+    private func calculateTotalSize() -> String {
+        let selectedAssets = manager.removeStackAssets.filter { manager.selectedAssets.contains($0.id) }
+        let totalBytes = selectedAssets.reduce(0) { $0 + $1.fileSizeBytes }
+        return ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)
     }
     
     /// Empty delete assets list
