@@ -16,6 +16,7 @@ struct PhotoCardView: View {
     @State var fromOnboardingFlow: Bool = false
     @State private var player: AVPlayer?
     @State private var isVideoLoaded: Bool = false
+    @State private var feedbackGenerator = UINotificationFeedbackGenerator()
     static let height: Double = UIScreen.main.bounds.width * 1.4
     let asset: AssetModel
     
@@ -34,17 +35,20 @@ struct PhotoCardView: View {
             .overlay(AssetPreviewOverlay).overlay(KeepDeleteOverlay)
             .overlay(AssetCreationDateTag).overlay(LoadingMoreOverlay)
             .offset(x: cardOffset)
-            .rotationEffect(.init(degrees: cardOffset == 0 ? 0 : (cardOffset > 0 ? 12 : -12)))
+            .rotationEffect(.init(degrees: rotationAngle))
             .gesture(
-                DragGesture().onChanged { value in
-                    guard isSwipingEnabled else { return }
-                    withAnimation(.default) {
-                        cardOffset = value.translation.width
+                DragGesture()
+                    .onChanged { value in
+                        guard isSwipingEnabled else { return }
+                        withAnimation(.interactiveSpring()) {
+                            cardOffset = value.translation.width
+                        }
                     }
-                }.onEnded { value in
-                    guard isSwipingEnabled else { return }
-                    updateCardEndPosition()
-                }
+                    .onEnded { value in
+                        guard isSwipingEnabled else { return }
+                        let velocity = value.predictedEndLocation.x - value.location.x
+                        updateCardEndPosition(with: velocity)
+                    }
             )
             .disabled(!hasFreeSwipes)
             .onAppear {
@@ -149,20 +153,44 @@ struct PhotoCardView: View {
         }
     }
     
+    /// Calculate rotation angle based on offset
+    private var rotationAngle: Double {
+        // Make rotation proportional to offset but cap it
+        let maxRotation = 8.0
+        let rotationFactor = 0.1
+        return min(max(cardOffset * rotationFactor, -maxRotation), maxRotation)
+    }
+    
     /// Update card position after the user lifts the finger off the screen
-    private func updateCardEndPosition() {
-        withAnimation(.easeIn){
-            /// When user swipes right
-            if cardOffset > 150 {
-                cardOffset = 500
-                manager.keepAsset(asset)
-
-            /// When user swipes left
-            } else if cardOffset < -150 {
-                cardOffset = -500
-                manager.deleteAsset(asset)
-            } else {
+    private func updateCardEndPosition(with velocity: CGFloat) {
+        let threshold: CGFloat = 100
+        let velocityThreshold: CGFloat = 300
+        
+        // Prepare haptic feedback
+        feedbackGenerator.prepare()
+        
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8, blendDuration: 0)) {
+            // Swipe right (Keep)
+            if cardOffset > threshold || velocity > velocityThreshold {
+                cardOffset = UIScreen.main.bounds.width
+                feedbackGenerator.notificationOccurred(.success)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    manager.keepAsset(asset)
+                }
+            }
+            // Swipe left (Delete)
+            else if cardOffset < -threshold || velocity < -velocityThreshold {
+                cardOffset = -UIScreen.main.bounds.width
+                feedbackGenerator.notificationOccurred(.warning)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    manager.deleteAsset(asset)
+                }
+            }
+            // Return to center
+            else {
                 cardOffset = 0
+                let impactGenerator = UIImpactFeedbackGenerator(style: .light)
+                impactGenerator.impactOccurred()
             }
         }
     }
