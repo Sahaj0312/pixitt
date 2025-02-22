@@ -175,13 +175,16 @@ extension DataManager {
     
     /// Append more assets to the stack
     private func appendStackAssetsIfNeeded() {
-        // Only try to load more if we have 50 or fewer assets
-        guard assetsSwipeStack.count <= 50 else { return }
+        // Only try to load more if we have 25 or fewer assets
+        guard assetsSwipeStack.count <= 25 else { return }
         
         let onThisDate: Bool = swipeStackTitle == AppConfig.swipeStackOnThisDateTitle
         let month: CalendarMonth? = CalendarMonth(rawValue: swipeStackTitle.lowercased())
         
-        // Check if we have more assets available before showing loading state
+        // Optimize the hasMoreAssets check by doing Core Data fetch once
+        let deletedAssets = (try? container.viewContext.fetch(DeletedAsset.fetchRequest())) ?? []
+        let deletedIdentifiers = Set(deletedAssets.compactMap { $0.assetIdentifier })
+        
         var hasMoreAssets = false
         if onThisDate {
             hasMoreAssets = assetsByMonth[Date().month]?
@@ -189,14 +192,17 @@ extension DataManager {
                     let isNotInStacks = !assetsSwipeStack.contains { $0.id == asset.localIdentifier } &&
                                       !keepStackAssets.contains { $0.id == asset.localIdentifier }
                     let isOnThisDate = asset.creationDate?.string(format: "MM/dd") == Date().string(format: "MM/dd")
-                    return isNotInStacks && isOnThisDate
+                    let isNotDeleted = !deletedIdentifiers.contains(asset.localIdentifier)
+                    return isNotInStacks && isOnThisDate && isNotDeleted
                 }
                 .count ?? 0 > 0
         } else if let month = month {
             hasMoreAssets = assetsByMonth[month]?
                 .filter { asset in
-                    !assetsSwipeStack.contains { $0.id == asset.localIdentifier } &&
-                    !keepStackAssets.contains { $0.id == asset.localIdentifier }
+                    let isNotInStacks = !assetsSwipeStack.contains { $0.id == asset.localIdentifier } &&
+                                      !keepStackAssets.contains { $0.id == asset.localIdentifier }
+                    let isNotDeleted = !deletedIdentifiers.contains(asset.localIdentifier)
+                    return isNotInStacks && isNotDeleted
                 }
                 .count ?? 0 > 0
         }
@@ -389,18 +395,38 @@ extension DataManager {
             let fetchRequest: NSFetchRequest<DeletedAsset> = DeletedAsset.fetchRequest()
             fetchRequest.predicate = NSPredicate(format: "assetIdentifier = %@", assetIdentifier)
             if (try? container.viewContext.fetch(fetchRequest))?.isEmpty ?? true {
-                let imageSize = AppConfig.swipeStackItemSize
-                requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
-                    func appendAsset() {
-                        if let assetImage = image {
-                            let assetModel = AssetModel(id: asset.localIdentifier, month: Date().month, isVideo: asset.mediaType == .video)
-                            assetModel.swipeStackImage = assetImage
-                            assetModel.creationDate = asset.creationDate?.string(format: "MMMM dd, yyyy")
+                // Request full resolution image for swipe stack
+                let options = PHImageRequestOptions()
+                options.deliveryMode = .highQualityFormat
+                options.isNetworkAccessAllowed = true
+                options.isSynchronous = false
+                options.resizeMode = .none
+                options.version = .current
+                
+                // First load a quick preview
+                imageManager.requestImage(
+                    for: asset,
+                    targetSize: AppConfig.swipeStackItemSize,
+                    contentMode: .aspectFill,
+                    options: options
+                ) { previewImage, _ in
+                    if let previewImage = previewImage {
+                        let assetModel = AssetModel(id: asset.localIdentifier, month: Date().month, isVideo: asset.mediaType == .video)
+                        assetModel.swipeStackImage = previewImage
+                        assetModel.creationDate = asset.creationDate?.string(format: "MMMM dd, yyyy")
+                        
+                        DispatchQueue.main.async {
                             self.assetsSwipeStack.appendIfNeeded(assetModel)
+                            
+                            // Then load the full quality version
+                            self.imageManager.requestImageDataAndOrientation(for: asset, options: options) { imageData, _, _, _ in
+                                if let data = imageData, let fullImage = UIImage(data: data) {
+                                    DispatchQueue.main.async {
+                                        assetModel.swipeStackImage = fullImage
+                                    }
+                                }
+                            }
                         }
-                    }
-                    if switchTabs { appendAsset() } else {
-                        DispatchQueue.main.async { appendAsset() }
                     }
                 }
             }
@@ -410,8 +436,12 @@ extension DataManager {
             let assetIdentifier = asset.localIdentifier
             let isNotInSwipeStack = !assetsSwipeStack.contains { $0.id == assetIdentifier }
             let isNotInKeepStack = !keepStackAssets.contains { $0.id == assetIdentifier }
-            let isNotDeleted = (try? container.viewContext.fetch(DeletedAsset.fetchRequest()).filter { $0.assetIdentifier == assetIdentifier }).map { $0.isEmpty } ?? true
-            return isNotInSwipeStack && isNotInKeepStack && isNotDeleted
+            // Optimize Core Data fetch by doing it once
+            if let deletedAssets = try? container.viewContext.fetch(DeletedAsset.fetchRequest()) {
+                let isNotDeleted = !deletedAssets.contains { $0.assetIdentifier == assetIdentifier }
+                return isNotInSwipeStack && isNotInKeepStack && isNotDeleted
+            }
+            return isNotInSwipeStack && isNotInKeepStack
         }
         
         var assets: [PHAsset] = [PHAsset]()
@@ -446,16 +476,16 @@ extension DataManager {
         
         // Load more assets, but ensure we don't exceed array bounds
         let currentCount = assetsSwipeStack.count
-        let batchSize = 100 // Increased batch size
+        let batchSize = 50 // Reduced batch size for better performance
         let assetsToLoad = min(batchSize - currentCount, availableAssets.count)
         
         if assetsToLoad > 0 {
             // Load assets in smaller chunks to prevent memory spikes
-            let chunk = 20
+            let chunk = 10 // Smaller chunks for smoother loading
             for i in stride(from: 0, to: assetsToLoad, by: chunk) {
                 let end = min(i + chunk, assetsToLoad)
                 let assetChunk = availableAssets[i..<end]
-                DispatchQueue.main.asyncAfter(deadline: .now() + Double(i/chunk) * 0.5) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + Double(i/chunk) * 0.2) { // Reduced delay
                     assetChunk.forEach { appendSwipeStackAsset($0) }
                 }
             }
@@ -546,11 +576,58 @@ extension DataManager {
     ///   - completion: returns the image if available
     private func requestImage(for asset: PHAsset, assetIdentifier: String,
                               size: CGSize, completion: @escaping (_ image: UIImage?) -> Void) {
-        if let cachedImage = fetchCachedImage(for: assetIdentifier) {
+        // Only cache swipe stack images, not thumbnails
+        let shouldCache = !assetIdentifier.contains("_thumbnail") && !assetIdentifier.contains("_onThisDate")
+        
+        if shouldCache, let cachedImage = fetchCachedImage(for: assetIdentifier) {
             completion(cachedImage)
+            return
+        }
+        
+        let options = PHImageRequestOptions()
+        
+        if shouldCache {
+            // For main swipe stack images, request maximum quality
+            options.deliveryMode = .highQualityFormat
+            options.isNetworkAccessAllowed = true
+            options.isSynchronous = false
+            options.resizeMode = .none
+            options.version = .current
+            
+            // Request the maximum possible resolution
+            let targetSize = PHImageManagerMaximumSize
+            
+            imageManager.requestImageDataAndOrientation(for: asset, options: options) { imageData, _, _, _ in
+                if let data = imageData, let image = UIImage(data: data) {
+                    self.saveAsset(image: image, assetIdentifier: assetIdentifier)
+                    completion(image)
+                } else {
+                    // Fallback to regular image request if data request fails
+                    self.imageManager.requestImage(
+                        for: asset,
+                        targetSize: targetSize,
+                        contentMode: .aspectFill,
+                        options: options
+                    ) { image, info in
+                        if let finalImage = image {
+                            self.saveAsset(image: finalImage, assetIdentifier: assetIdentifier)
+                            completion(finalImage)
+                        }
+                    }
+                }
+            }
         } else {
-            imageManager.requestImage(for: asset, targetSize: size, contentMode: .aspectFill, options: .opportunistic) { image, _ in
-                self.saveAsset(image: image, assetIdentifier: assetIdentifier)
+            // For thumbnails, use fast loading
+            options.deliveryMode = .fastFormat
+            options.isNetworkAccessAllowed = true
+            options.resizeMode = .fast
+            
+            imageManager.requestImage(
+                for: asset,
+                targetSize: size,
+                contentMode: .aspectFill,
+                options: options
+            ) { image, _ in
                 completion(image)
             }
         }
