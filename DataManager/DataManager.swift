@@ -60,7 +60,10 @@ class DataManager: NSObject, ObservableObject {
         
         // Check premium status
         Task {
-            self.isPremiumUser = await RevenueCatConfig.shared.isPremium()
+            let isPremium = await RevenueCatConfig.shared.isPremium()
+            DispatchQueue.main.async {
+                self.isPremiumUser = isPremium
+            }
         }
     }
     
