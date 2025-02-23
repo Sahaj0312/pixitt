@@ -8,7 +8,6 @@
 import SwiftUI
 import StoreKit
 import MessageUI
-import PurchaseKit
 
 /// Shows the settings for the app
 struct SettingsTabView: View {
@@ -65,16 +64,16 @@ struct SettingsTabView: View {
             Color.secondaryTextColor.frame(height: 1).opacity(0.3).padding(.horizontal)
             SettingsItem(title: restoringPurchases ? "Please wait..." : "Restore Purchases", icon: "arrow.clockwise") {
                 restoringPurchases = true
-                PKManager.restorePurchases { _, status, _ in
-                    DispatchQueue.main.async {
-                        self.restoringPurchases = false
-                        if status == .restored {
-                            self.manager.isPremiumUser = true
+                Task {
+                    do {
+                        let customerInfo = try await RevenueCatConfig.shared.restorePurchases()
+                        if customerInfo.entitlements[RevenueCatConfig.entitlementIdentifier]?.isActive == true {
+                            manager.isPremiumUser = true
                         }
+                    } catch {
+                        // Handle error if needed
                     }
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                    self.restoringPurchases = false
+                    restoringPurchases = false
                 }
             }
         }.modifier(SectionBackgroundView(bottomPadding: 30))

@@ -31,7 +31,6 @@ class AppConfig {
     static let yourAppURL: URL = URL(string: "https://apps.apple.com/app/idXXXXXXXXX")!
     
     // MARK: - In App Purchases
-    static let premiumVersion: String = "Pixitt.Premium"
     static let freePhotosStackCount: Int = 500
     static let premiumFeaturesList: [String] = [
         "Unlimited Swipes",

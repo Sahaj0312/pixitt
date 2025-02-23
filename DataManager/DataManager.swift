@@ -10,6 +10,7 @@ import SwiftUI
 import PhotosUI
 import CoreData
 import Foundation
+import RevenueCat
 
 /// Main data manager for the app
 class DataManager: NSObject, ObservableObject {
@@ -33,7 +34,7 @@ class DataManager: NSObject, ObservableObject {
     /// Dynamic properties that the UI will react to AND store values in UserDefaults
     @AppStorage("freePhotosStackCount") var freePhotosStackCount: Int = 0
     @AppStorage("didShowOnboardingFlow") var didShowOnboardingFlow: Bool = false
-    @AppStorage(AppConfig.premiumVersion) var isPremiumUser: Bool = false {
+    @Published var isPremiumUser: Bool = false {
         didSet { Interstitial.shared.isPremiumUser = isPremiumUser }
     }
     
@@ -56,6 +57,11 @@ class DataManager: NSObject, ObservableObject {
         prepareCoreData()
         configurePlaceholderAssets()
         checkAuthorizationStatus()
+        
+        // Check premium status
+        Task {
+            self.isPremiumUser = await RevenueCatConfig.shared.isPremium()
+        }
     }
     
     /// Sorted months based on current date

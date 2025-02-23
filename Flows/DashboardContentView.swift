@@ -116,17 +116,8 @@ struct DashboardContentView: View {
     
     /// Premium flow view
     private var PremiumView: some View {
-        PremiumContentView(title: "Premium Version", subtitle: "Unlock All Features", features: AppConfig.premiumFeaturesList, productIds: [AppConfig.premiumVersion]) {
-            manager.fullScreenMode = nil
-        } completion: { _, status, _ in
-            DispatchQueue.main.async {
-                if status == .success || status == .restored {
-                    manager.isPremiumUser = true
-                    Interstitial.shared.isPremiumUser = true
-                }
-                manager.fullScreenMode = nil
-            }
-        }
+        RevenueCatPaywallView()
+            .environmentObject(manager)
     }
 }
 

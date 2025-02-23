@@ -7,14 +7,15 @@
 
 import UIKit
 import Foundation
-import PurchaseKit
 import GoogleMobileAds
 import AppTrackingTransparency
+import RevenueCat
 
 /// App Delegate file in SwiftUI
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-        PKManager.loadProducts(identifiers: [AppConfig.premiumVersion])
+        // Configure RevenueCat
+        RevenueCatConfig.shared
         NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: nil) { _ in self.requestIDFA() }
         return true
     }
@@ -31,7 +32,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
 // MARK: - Google AdMob Interstitial - Support class
 class Interstitial: NSObject, GADFullScreenContentDelegate {
-    var isPremiumUser: Bool = UserDefaults.standard.bool(forKey: AppConfig.premiumVersion)
+    var isPremiumUser: Bool = false
     private var interstitial: GADInterstitialAd?
     static var shared: Interstitial = Interstitial()
 
