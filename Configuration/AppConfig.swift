@@ -16,9 +16,9 @@ class AppConfig {
     static let adMobAdId: String = "ca-app-pub-3940256099942544/4411468910"
     
     // MARK: - Generic Configurations
-    static let sectionItemThumbnailSize: CGSize = .init(width: 350, height: 350)
-    static let onThisDateItemSize: CGSize = .init(width: 1050, height: 550)
-    static let swipeStackItemSize: CGSize = .init(width: 950, height: 1200)
+    static let sectionItemThumbnailSize: CGSize = .init(width: 150, height: 150)
+    static let onThisDateItemSize: CGSize = .init(width: 300, height: 300)
+    static let swipeStackItemSize: CGSize = .init(width: 600, height: 600)
     static let swipeStackOnThisDateTitle: String = "On This Date"
     static let onboardingAssets: [AssetModel] = [
         .init(id: "onboarding-1", month: .january), .init(id: "onboarding-2", month: .february)
@@ -31,9 +31,14 @@ class AppConfig {
     static let yourAppURL: URL = URL(string: "https://apps.apple.com/app/idXXXXXXXXX")!
     
     // MARK: - In App Purchases
-    static let premiumVersion: String = "SwipeClean.Premium"
+    static let premiumVersion: String = "Pixitt.Premium"
     static let freePhotosStackCount: Int = 500
-    static let premiumFeaturesList: [String] = ["Unlimited Swipes", "Remove All Ads"]
+    static let premiumFeaturesList: [String] = [
+        "Unlimited Swipes",
+        "No Ads",
+        "Access to videos collection",
+        "Create and add to albums on the fly"
+    ]
 }
 
 /// Custom colors
@@ -54,24 +59,26 @@ enum FullScreenMode: Int, Identifiable {
 /// Custom tab bar items
 enum CustomTabBarItem: String, CaseIterable, Identifiable {
     case discover = "Discover"
-    case swipeClean = "SwipeClean"
-    case photoBin = "PhotoBin"
+    case swipePhotos = "Pixitt"
+    case photoBin = "Photo Bin"
     case settings = "Settings"
-    var id: Int { hashValue }
     
-    /// Tab bar icon
+    /// Tab bar item icon
     var icon: String {
         switch self {
         case .discover:
-            return "house.fill"
-        case .swipeClean:
-            return "photo.stack.fill"
+            return "photo.stack"
+        case .swipePhotos:
+            return "hand.draw"
         case .photoBin:
-            return "trash.fill"
+            return "trash"
         case .settings:
-            return "gearshape.fill"
+            return "gearshape"
         }
     }
+    
+    /// Unique identifier
+    var id: String { rawValue }
 }
 
 /// Months of the year

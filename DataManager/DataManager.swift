@@ -389,7 +389,7 @@ extension DataManager {
         /// Load previously deleted assets
         loadDeletedAssets()
         
-        /// Update the SwipeClean tab with `On This Date` photos by default
+        /// Update the Pixitt tab with `On This Date` photos by default
         updateSwipeStack(onThisDate: true, switchTabs: false)
         
         /// Add up to 3 assets for each month to `galleryAssets`
@@ -587,7 +587,7 @@ extension DataManager {
         if switchTabs {
             assetsSwipeStack.removeAll()
             keepStackAssets.removeAll()
-            selectedTab = .swipeClean
+            selectedTab = .swipePhotos
         }
         
         DispatchQueue.main.async {
@@ -647,6 +647,9 @@ extension DataManager {
                         try? self.container.viewContext.save()
                     }
                     self.removeStackAssets.removeAll { removeStackAssetIdentifiers.contains($0.id) }
+                    
+                    // Switch to Pixitt tab after emptying bin
+                    self.selectedTab = .swipePhotos
                 }
             } else if let errorMessage = error?.localizedDescription {
                 presentAlert(title: "Oops!", message: errorMessage, primaryAction: .OK)

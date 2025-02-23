@@ -96,7 +96,7 @@ struct DashboardContentView: View {
             let topPadding: Double = 65.0
             switch type {
             case .discover: HomeTabView().padding(.top, topPadding)
-            case .swipeClean: SwipeTabView().padding(.top, topPadding)
+            case .swipePhotos: SwipeTabView().padding(.top, topPadding)
             case .photoBin: PhotoBinTabView().padding(.top, topPadding)
             case .settings: SettingsTabView().padding(.top, topPadding)
             }

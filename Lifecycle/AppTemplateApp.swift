@@ -1,6 +1,6 @@
 //
-//  SwipeCleanApp.swift
-//  SwipeClean
+//  PixittApp.swift
+//  Pixitt
 //
 //  Created by Apps4World on 1/3/25.
 //
@@ -10,7 +10,7 @@ import SwiftUI
 import Combine
 
 @main
-struct SwipeCleanApp: App {
+struct PixittApp: App {
     
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var manager: DataManager = DataManager()

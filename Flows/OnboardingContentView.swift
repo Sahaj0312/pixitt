@@ -31,9 +31,7 @@ struct OnboardingContentView: View {
             .padding(.horizontal).padding(.bottom, 10)
             
             VStack {
-                Text("Swipe")
-                    .font(.system(size: 38, weight: .medium, design: .rounded))
-                + Text("Clean")
+                Text("Pixitt")
                     .font(.system(size: 38, weight: .bold, design: .rounded))
                 Text("Swipe and Organize: Left to Delete,\nRight to Cherish")
                     .font(.system(size: 20, weight: .medium, design: .rounded))
@@ -65,14 +63,14 @@ struct OnboardingContentView: View {
                         .foregroundStyle(LinearGradient(colors: [.red, .accentColor, .green], startPoint: .leading, endPoint: .trailing))
                         .offset(y: 20).padding().blur(radius: 20).opacity(0.3)
                 )
-            VStack {
-                Image(systemName: "photo.on.rectangle")
-                    .font(.system(size: 40)).padding(5)
-                Text("Access Needed").font(.title2).fontWeight(.bold)
-                Text("To start sorting your photos, SwipeClean needs access to your gallery.")
-                    .font(.body).multilineTextAlignment(.center)
-                    .padding(.horizontal).opacity(0.6)
-            }
+            VStack(spacing: 12) {
+                Text("Photo Library Access")
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                Text("To start sorting your photos, Pixitt needs access to your gallery.")
+                    .font(.system(size: 16))
+                    .multilineTextAlignment(.center)
+                    .opacity(0.6)
+            }.padding(.horizontal)
         }
     }
     
