@@ -7,6 +7,7 @@
 
 import SwiftUI
 import AVKit
+import Photos
 
 /// A swipe card showing an asset
 struct PhotoCardView: View {
@@ -16,6 +17,7 @@ struct PhotoCardView: View {
     @State var fromOnboardingFlow: Bool = false
     @State private var player: AVPlayer?
     @State private var isVideoLoaded: Bool = false
+    @State private var isSharePresented: Bool = false
     @State private var feedbackGenerator = UINotificationFeedbackGenerator()
     static let height: Double = UIScreen.main.bounds.width * 1.4
     let asset: AssetModel
@@ -106,8 +108,29 @@ struct PhotoCardView: View {
     
     /// Asset creation date tag
     private var AssetCreationDateTag: some View {
-        VStack {
+        VStack(spacing: 10) {
             Spacer()
+            // Share button
+            HStack {
+                Button(action: shareAsset) {
+                    HStack {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 12))
+                        Text("Share")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                    }
+                    .padding(8)
+                    .padding(.horizontal, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .foregroundStyle(.white).opacity(0.8)
+                    )
+                    .foregroundStyle(Color.primaryTextColor)
+                }
+                Spacer()
+            }
+            
+            // Date and size
             HStack {
                 if let date = asset.creationDate {
                     Text(date)
@@ -132,7 +155,7 @@ struct PhotoCardView: View {
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(Color.primaryTextColor)
                 }
-            }.padding(.top, 38)
+            }
         }.padding()
     }
     
@@ -222,7 +245,50 @@ struct PhotoCardView: View {
         return manager.freePhotosStackCount < AppConfig.freePhotosStackCount
     }
     
+    /// Share the current asset
+    private func shareAsset() {
+        var items: [Any] = []
+        
+        if asset.isVideo {
+            // For videos, we need to get the video URL
+            let options = PHVideoRequestOptions()
+            options.isNetworkAccessAllowed = true
+            options.deliveryMode = .highQualityFormat
+            options.version = .current
+            
+            manager.loadVideoAsset(for: asset.id) { url in
+                if let url = url {
+                    items.append(url)
+                    DispatchQueue.main.async {
+                        let activityVC = UIActivityViewController(activityItems: items, applicationActivities: nil)
+                        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                           let window = windowScene.windows.first,
+                           let rootVC = window.rootViewController {
+                            rootVC.present(activityVC, animated: true)
+                        }
+                    }
+                }
+            }
+        } else {
+            // For images, we can use the swipeStackImage directly
+            if let image = asset.swipeStackImage {
+                items.append(image)
+                let activityVC = UIActivityViewController(activityItems: items, applicationActivities: nil)
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let window = windowScene.windows.first,
+                   let rootVC = window.rootViewController {
+                    rootVC.present(activityVC, animated: true)
+                }
+            }
+        }
+    }
+    
     private func loadVideo() {
+        let options = PHVideoRequestOptions()
+        options.isNetworkAccessAllowed = true
+        options.deliveryMode = .highQualityFormat
+        options.version = .current
+        
         manager.loadVideoAsset(for: asset.id) { url in
             if let url = url {
                 DispatchQueue.main.async {
