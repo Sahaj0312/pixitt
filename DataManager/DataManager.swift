@@ -824,3 +824,35 @@ extension DataManager {
         }
     }
 }
+
+// MARK: - Album implementation
+extension DataManager {
+    /// Get all user albums
+    func fetchUserAlbums() -> PHFetchResult<PHAssetCollection> {
+        let options = PHFetchOptions()
+        options.sortDescriptors = [NSSortDescriptor(key: "localizedTitle", ascending: true)]
+        return PHAssetCollection.fetchAssetCollections(with: .album, subtype: .any, options: options)
+    }
+    
+    /// Create a new album
+    func createAlbum(withTitle title: String, completion: @escaping (Bool, Error?) -> Void) {
+        PHPhotoLibrary.shared().performChanges({
+            PHAssetCollectionChangeRequest.creationRequestForAssetCollection(withTitle: title)
+        }, completionHandler: completion)
+    }
+    
+    /// Add asset to album
+    func addAssetToAlbum(assetId: String, album: PHAssetCollection, completion: @escaping (Bool, Error?) -> Void) {
+        guard let asset = assetsByMonth.flatMap({ $0.value }).first(where: { $0.localIdentifier == assetId }) else {
+            completion(false, nil)
+            return
+        }
+        
+        PHPhotoLibrary.shared().performChanges({
+            if let albumChangeRequest = PHAssetCollectionChangeRequest(for: album) {
+                let assets = NSArray(array: [asset])
+                albumChangeRequest.addAssets(assets)
+            }
+        }, completionHandler: completion)
+    }
+}

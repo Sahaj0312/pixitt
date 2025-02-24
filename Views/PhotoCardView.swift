@@ -19,6 +19,7 @@ struct PhotoCardView: View {
     @State private var isVideoLoaded: Bool = false
     @State private var isSharePresented: Bool = false
     @State private var feedbackGenerator = UINotificationFeedbackGenerator()
+    @State private var isAlbumListPresented: Bool = false
     static let height: Double = UIScreen.main.bounds.width * 1.4
     let asset: AssetModel
     
@@ -72,6 +73,9 @@ struct PhotoCardView: View {
                     isVideoLoaded = false
                 }
             }
+            .sheet(isPresented: $isAlbumListPresented) {
+                AlbumListView(assetId: asset.id)
+            }
     }
     
     /// Asset preview overlay
@@ -110,6 +114,32 @@ struct PhotoCardView: View {
     private var AssetCreationDateTag: some View {
         VStack(spacing: 10) {
             Spacer()
+            // Add to Album button
+            HStack {
+                Button(action: {
+                    if manager.isPremiumUser {
+                        isAlbumListPresented = true
+                    } else {
+                        manager.fullScreenMode = .premium
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: "folder.badge.plus")
+                            .font(.system(size: 12))
+                        Text("Add to Album")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                    }
+                    .padding(8)
+                    .padding(.horizontal, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .foregroundStyle(.white).opacity(0.8)
+                    )
+                    .foregroundStyle(Color.primaryTextColor)
+                }
+                Spacer()
+            }
+            
             // Share button
             HStack {
                 Button(action: shareAsset) {
