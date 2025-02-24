@@ -36,7 +36,7 @@ class AppConfig {
         "Unlimited Swipes",
         "No Ads",
         "Access to videos collection",
-        "Create and add to albums on the fly"
+        "Create and add to albums"
     ]
 }
 
