@@ -43,17 +43,27 @@ struct PhotoCardView: View {
                 DragGesture()
                     .onChanged { value in
                         guard isSwipingEnabled else { return }
+                        // Check swipe limit before allowing swipe
+                        if !hasFreeSwipes {
+                            checkSwipeLimit()
+                            return
+                        }
                         withAnimation(.interactiveSpring()) {
                             cardOffset = value.translation.width
                         }
                     }
                     .onEnded { value in
                         guard isSwipingEnabled else { return }
+                        // Check swipe limit before allowing swipe completion
+                        if !hasFreeSwipes {
+                            checkSwipeLimit()
+                            return
+                        }
                         let velocity = value.predictedEndLocation.x - value.location.x
                         updateCardEndPosition(with: velocity)
                     }
             )
-            .disabled(!hasFreeSwipes)
+            .disabled(false) // Never disable, we'll handle in gesture
             .onAppear {
                 if asset.isVideo && isTopCard {
                     loadVideo()
@@ -272,7 +282,19 @@ struct PhotoCardView: View {
     /// Verify it the user has any free swipes
     private var hasFreeSwipes: Bool {
         guard !manager.isPremiumUser else { return true }
+        manager.checkAndResetDailySwipeCount()
         return manager.freePhotosStackCount < AppConfig.freePhotosStackCount
+    }
+    
+    /// Check if swipe limit has been reached and show paywall if needed
+    private func checkSwipeLimit() {
+        guard !manager.isPremiumUser else { return }
+        manager.checkAndResetDailySwipeCount()
+        if manager.freePhotosStackCount >= AppConfig.freePhotosStackCount {
+            DispatchQueue.main.async {
+                manager.fullScreenMode = .premium
+            }
+        }
     }
     
     /// Share the current asset

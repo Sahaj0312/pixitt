@@ -86,7 +86,19 @@ struct SwipeTabView: View {
     /// Verify it the user has any free swipes
     private var hasFreeSwipes: Bool {
         guard !manager.isPremiumUser else { return true }
+        manager.checkAndResetDailySwipeCount()
         return manager.freePhotosStackCount < AppConfig.freePhotosStackCount
+    }
+    
+    /// Check if swipe limit has been reached and show paywall if needed
+    private func checkSwipeLimit() {
+        guard !manager.isPremiumUser else { return }
+        manager.checkAndResetDailySwipeCount()
+        if manager.freePhotosStackCount >= AppConfig.freePhotosStackCount {
+            DispatchQueue.main.async {
+                manager.fullScreenMode = .premium
+            }
+        }
     }
 }
 

@@ -74,6 +74,8 @@ struct DashboardContentView: View {
     
     /// Swipe count indicator view
     private func SwipeCountView() -> some View {
+        // Check for daily reset
+        manager.checkAndResetDailySwipeCount()
         let remainingSwipes = AppConfig.freePhotosStackCount - manager.freePhotosStackCount
         return HStack(spacing: 4) {
             Image(systemName: "hand.draw.fill")

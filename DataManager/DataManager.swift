@@ -33,6 +33,7 @@ class DataManager: NSObject, ObservableObject {
    
     /// Dynamic properties that the UI will react to AND store values in UserDefaults
     @AppStorage("freePhotosStackCount") var freePhotosStackCount: Int = 0
+    @AppStorage("lastSwipeResetTimestamp") var lastSwipeResetTimestamp: Double = Date().timeIntervalSince1970
     @AppStorage("didShowOnboardingFlow") var didShowOnboardingFlow: Bool = false
     @Published var isPremiumUser: Bool = false {
         didSet { Interstitial.shared.isPremiumUser = isPremiumUser }
@@ -57,6 +58,7 @@ class DataManager: NSObject, ObservableObject {
         prepareCoreData()
         configurePlaceholderAssets()
         checkAuthorizationStatus()
+        checkAndResetDailySwipeCount()
         
         // Check premium status
         Task {
@@ -64,6 +66,26 @@ class DataManager: NSObject, ObservableObject {
             DispatchQueue.main.async {
                 self.isPremiumUser = isPremium
             }
+        }
+    }
+    
+    /// Check and reset the free swipe count if it's a new day
+    func checkAndResetDailySwipeCount() {
+        let calendar = Calendar.current
+        let lastResetDate = Date(timeIntervalSince1970: lastSwipeResetTimestamp)
+        let lastResetDay = calendar.component(.day, from: lastResetDate)
+        let lastResetMonth = calendar.component(.month, from: lastResetDate)
+        let lastResetYear = calendar.component(.year, from: lastResetDate)
+        
+        let today = Date()
+        let currentDay = calendar.component(.day, from: today)
+        let currentMonth = calendar.component(.month, from: today)
+        let currentYear = calendar.component(.year, from: today)
+        
+        // If the day has changed, reset the swipe count
+        if currentDay != lastResetDay || currentMonth != lastResetMonth || currentYear != lastResetYear {
+            freePhotosStackCount = 0
+            lastSwipeResetTimestamp = today.timeIntervalSince1970
         }
     }
     
