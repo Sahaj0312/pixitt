@@ -41,6 +41,7 @@ struct DashboardContentView: View {
             HStack {
                 Text(manager.selectedTab.rawValue)
                     .font(.system(size: 33, weight: .bold, design: .rounded))
+                    .foregroundColor(.headerTextColor)
                 Spacer()
                 
                 // Show swipe count for all tabs except when in photo bin with items

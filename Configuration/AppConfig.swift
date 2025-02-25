@@ -44,6 +44,7 @@ class AppConfig {
 extension Color {
     static let backgroundColor: Color = Color("BackgroundColor")
     static let primaryTextColor: Color = Color("PrimaryTextColor")
+    static let headerTextColor: Color = Color("HeaderTextColor")    
     static let secondaryTextColor: Color = Color("SecondaryTextColor")
     static let deleteColor: Color = Color("DeleteColor")
     static let keepColor: Color = Color("KeepColor")
