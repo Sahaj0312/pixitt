@@ -93,7 +93,13 @@ struct HomeTabView: View {
                 .shadow(color: .black.opacity(0.1), radius: 10, y: 5)
             
             if let firstVideo = manager.videosPreview.first, let thumbnail = firstVideo.thumbnail {
-                Button { manager.updateSwipeStack(videosOnly: true) } label: {
+                Button { 
+                    if manager.isPremiumUser {
+                        manager.updateSwipeStack(videosOnly: true)
+                    } else {
+                        manager.fullScreenMode = .premium
+                    }
+                } label: {
                     ZStack {
                         Image(uiImage: thumbnail)
                             .resizable()
@@ -118,6 +124,23 @@ struct HomeTabView: View {
                                     .foregroundStyle(.black)
                                     .offset(x: 2)
                             )
+                            
+                        // Premium lock overlay for non-premium users
+                        if !manager.isPremiumUser {
+                            ZStack {
+                                Color.black.opacity(0.5)
+                                    .frame(height: tileHeight)
+                                VStack(spacing: 8) {
+                                    Image(systemName: "lock.fill")
+                                        .font(.system(size: 30, weight: .bold))
+                                        .foregroundColor(.white)
+                                    Text("Premium")
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: 25))
+                        }
                     }
                 }
             } else {
@@ -138,6 +161,13 @@ struct HomeTabView: View {
                     }
                     .foregroundStyle(.white)
                     Spacer()
+                    // Add lock icon for non-premium users
+                    if !manager.isPremiumUser {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.trailing, 5)
+                    }
                 }
                 .padding(15)
                 .background(

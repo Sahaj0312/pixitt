@@ -529,7 +529,20 @@ extension DataManager {
     
     /// Update the `assetsSwipeStack` with selected category
     func updateSwipeStack(with calendarMonth: CalendarMonth? = nil, year: Int? = nil, onThisDate: Bool = false, videosOnly: Bool = false, switchTabs: Bool = true) {
+        // Prevent non-premium users from accessing videos
+        if videosOnly && !isPremiumUser {
+            DispatchQueue.main.async {
+                self.fullScreenMode = .premium
+            }
+            return
+        }
+        
         func appendSwipeStackAsset(_ asset: PHAsset) {
+            // Skip video assets for non-premium users
+            if asset.mediaType == .video && !isPremiumUser {
+                return
+            }
+            
             let assetIdentifier = asset.localIdentifier
             // Check if the asset is marked for deletion in Core Data
             let fetchRequest: NSFetchRequest<DeletedAsset> = DeletedAsset.fetchRequest()

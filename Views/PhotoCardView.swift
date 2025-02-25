@@ -134,18 +134,23 @@ struct PhotoCardView: View {
                     }
                 }) {
                     HStack {
-                        Image(systemName: "folder.badge.plus")
+                        Image(systemName: manager.isPremiumUser ? "folder.badge.plus" : "lock.fill")
                             .font(.system(size: 12))
                         Text("Add to Album")
                             .font(.system(size: 12, weight: .medium, design: .rounded))
+                        if !manager.isPremiumUser {
+                            Image(systemName: "crown.fill")
+                                .font(.system(size: 10))
+                                .foregroundColor(.yellow)
+                        }
                     }
                     .padding(8)
                     .padding(.horizontal, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 10)
-                            .foregroundStyle(.white).opacity(0.8)
+                            .foregroundStyle(manager.isPremiumUser ? .white.opacity(0.8) : Color.headerTextColor.opacity(0.9))
                     )
-                    .foregroundStyle(Color.primaryTextColor)
+                    .foregroundStyle(manager.isPremiumUser ? Color.primaryTextColor : .white)
                 }
                 Spacer()
             }
