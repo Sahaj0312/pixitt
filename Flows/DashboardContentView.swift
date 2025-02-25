@@ -40,7 +40,7 @@ struct DashboardContentView: View {
         VStack {
             HStack {
                 Text(manager.selectedTab.rawValue)
-                    .font(.system(size: 33, weight: .bold, design: .rounded))
+                    .font(.system(size: 33, weight: .heavy, design: .rounded))
                     .foregroundColor(.headerTextColor)
                 Spacer()
                 
@@ -65,7 +65,7 @@ struct DashboardContentView: View {
                 .padding(.horizontal, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 20)
-                        .foregroundStyle(Color.blue)
+                        .foregroundStyle(Color.headerTextColor)
                 )
                 .foregroundStyle(.white)
                 .font(.system(size: 15, weight: .semibold))
@@ -85,7 +85,7 @@ struct DashboardContentView: View {
         .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .foregroundStyle(Color.blue)
+                .foregroundStyle(Color.headerTextColor)
         )
         .foregroundStyle(.white)
     }
