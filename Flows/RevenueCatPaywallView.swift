@@ -48,7 +48,7 @@ struct RevenueCatPaywallView: View {
             Image(systemName: "crown.fill")
                 .font(.system(size: 100))
                 .padding(20)
-                .foregroundColor(.primary)
+                .foregroundColor(.headerTextColor)
             
             Text("Premium Version")
                 .font(.largeTitle)
@@ -57,7 +57,7 @@ struct RevenueCatPaywallView: View {
             Text("Unlock All Features")
                 .font(.headline)
         }
-        .foregroundColor(.primary)
+        .foregroundColor(.headerTextColor)
     }
     
     private var FeaturesView: some View {

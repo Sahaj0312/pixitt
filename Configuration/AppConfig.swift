@@ -33,7 +33,7 @@ class AppConfig {
     // MARK: - In App Purchases
     static let freePhotosStackCount: Int = 100
     static let premiumFeaturesList: [String] = [
-        "Unlimited Swipes (Free: 100/day)",
+        "Unlimited Swipes vs 100/day",
         "No Ads",
         "Access to Videos Collection", 
         "Create and Add Photos to Albums"
